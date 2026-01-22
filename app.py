@@ -1,307 +1,349 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import networkx as nx
+from io import BytesIO
+from datetime import datetime
 
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(
     page_title="Zaldívar Radio Monitor",
     layout="wide",
     page_icon="📡",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
-# --- 2. CSS MODERNO Y PROFESIONAL (2026 TRENDS) ---
-st.markdown("""
-<style>
-    /* ============================================
-       TIPOGRAFÍA MODERNA - INTER FONT
-       ============================================ */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+# --- 2. CSS MODERNO Y PROFESIONAL ---
+def apply_custom_css(dark_mode=False):
+    if dark_mode:
+        st.markdown("""
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-    html, body, [class*="css"] {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-        color: #1e293b;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-    }
+            html, body, [class*="css"] {
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                color: #f1f5f9;
+                -webkit-font-smoothing: antialiased;
+            }
 
-    /* ============================================
-       FONDO CON GRADIENTE SUTIL
-       ============================================ */
-    .stApp {
-        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-    }
+            .stApp {
+                background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            }
 
-    /* ============================================
-       HEADER - TÍTULO PRINCIPAL
-       ============================================ */
-    h1 {
-        color: #0f172a !important;
-        font-weight: 800 !important;
-        font-size: 2.8rem !important;
-        letter-spacing: -1.5px !important;
-        margin-bottom: 0.5rem !important;
-        background: linear-gradient(135deg, #1e293b 0%, #3b82f6 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
+            h1 {
+                color: #f1f5f9 !important;
+                font-weight: 800 !important;
+                font-size: 2.8rem !important;
+                letter-spacing: -1.5px !important;
+            }
 
-    h5 {
-        color: #64748b !important;
-        font-weight: 500 !important;
-        font-size: 1.1rem !important;
-        margin-top: 0 !important;
-    }
+            h3, h5 {
+                color: #cbd5e1 !important;
+            }
 
-    h3 {
-        color: #1e293b !important;
-        font-weight: 700 !important;
-        font-size: 1.5rem !important;
-        letter-spacing: -0.5px !important;
-    }
+            div[data-testid="metric-container"] {
+                background: rgba(30, 41, 59, 0.8);
+                backdrop-filter: blur(20px);
+                border: 1px solid rgba(71, 85, 105, 0.5);
+                padding: 28px 24px;
+                border-radius: 20px;
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            }
 
-    /* ============================================
-       MÉTRICAS KPI - GLASSMORPHISM EFFECT
-       ============================================ */
-    div[data-testid="metric-container"] {
-        background: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.9);
-        padding: 28px 24px;
-        border-radius: 20px;
-        box-shadow: 
-            0 8px 32px 0 rgba(31, 38, 135, 0.08),
-            0 2px 8px 0 rgba(0, 0, 0, 0.05);
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-        overflow: hidden;
-    }
+            div[data-testid="metric-container"]:hover {
+                transform: translateY(-8px) scale(1.02);
+                border-color: rgba(59, 130, 246, 0.5);
+                box-shadow: 0 20px 60px 0 rgba(59, 130, 246, 0.3);
+            }
 
-    /* Efecto gradiente sutil en el fondo */
-    div[data-testid="metric-container"]::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(147, 51, 234, 0.05) 100%);
-        opacity: 0;
-        transition: opacity 0.4s ease;
-        z-index: 0;
-    }
+            div[data-testid="metric-container"] label {
+                color: #94a3b8 !important;
+            }
 
-    div[data-testid="metric-container"]:hover::before {
-        opacity: 1;
-    }
+            div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
+                color: #f1f5f9 !important;
+            }
 
-    div[data-testid="metric-container"]:hover {
-        transform: translateY(-8px) scale(1.02);
-        box-shadow: 
-            0 20px 60px 0 rgba(59, 130, 246, 0.15),
-            0 4px 16px 0 rgba(0, 0, 0, 0.1);
-        border-color: rgba(59, 130, 246, 0.3);
-    }
+            .streamlit-expanderHeader {
+                background: rgba(30, 41, 59, 0.8);
+                border: 1px solid rgba(71, 85, 105, 0.5);
+                color: #f1f5f9 !important;
+            }
 
-    div[data-testid="metric-container"] label {
-        color: #64748b !important;
-        font-size: 0.75rem !important;
-        font-weight: 600 !important;
-        text-transform: uppercase !important;
-        letter-spacing: 1.2px !important;
-        position: relative;
-        z-index: 1;
-    }
+            .streamlit-expanderContent {
+                background: rgba(30, 41, 59, 0.8);
+                border: 1px solid rgba(71, 85, 105, 0.5);
+            }
 
-    div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
-        color: #0f172a !important;
-        font-weight: 800 !important;
-        font-size: 2.2rem !important;
-        letter-spacing: -1px !important;
-        position: relative;
-        z-index: 1;
-    }
+            .stTabs [data-baseweb="tab-list"] {
+                background: rgba(30, 41, 59, 0.6);
+            }
 
-    /* ============================================
-       EXPANDERS - TARJETAS ELEGANTES
-       ============================================ */
-    .streamlit-expanderHeader {
-        background: rgba(255, 255, 255, 0.8);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(226, 232, 240, 0.8);
-        border-radius: 16px;
-        color: #1e293b !important;
-        font-weight: 600 !important;
-        font-size: 1.05rem !important;
-        padding: 18px 24px !important;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-    }
+            .stTabs [data-baseweb="tab"] {
+                color: #94a3b8;
+            }
 
-    .streamlit-expanderHeader:hover {
-        background: rgba(255, 255, 255, 0.95);
-        border-color: #3b82f6;
-        box-shadow: 0 4px 16px rgba(59, 130, 246, 0.12);
-        transform: translateX(4px);
-    }
+            .stTabs [aria-selected="true"] {
+                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+                color: white !important;
+            }
 
-    .streamlit-expanderContent {
-        background: rgba(255, 255, 255, 0.8);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(226, 232, 240, 0.8);
-        border-top: none;
-        border-bottom-left-radius: 16px;
-        border-bottom-right-radius: 16px;
-        padding: 28px !important;
-        margin-top: -1px;
-    }
+            .stDataFrame thead tr th {
+                background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
+                color: white !important;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-    /* ============================================
-       PESTAÑAS - DISEÑO MODERNO TIPO PÍLDORA
-       ============================================ */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 12px;
-        background: rgba(255, 255, 255, 0.6);
-        padding: 8px;
-        border-radius: 16px;
-        backdrop-filter: blur(10px);
-    }
+            html, body, [class*="css"] {
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                color: #1e293b;
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+            }
 
-    .stTabs [data-baseweb="tab"] {
-        background: transparent;
-        border-radius: 12px;
-        padding: 12px 28px;
-        font-weight: 600;
-        font-size: 0.95rem;
-        color: #64748b;
-        border: none;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        letter-spacing: 0.3px;
-    }
+            .stApp {
+                background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            }
 
-    .stTabs [data-baseweb="tab"]:hover {
-        background: rgba(59, 130, 246, 0.1);
-        color: #3b82f6;
-    }
+            h1 {
+                color: #0f172a !important;
+                font-weight: 800 !important;
+                font-size: 2.8rem !important;
+                letter-spacing: -1.5px !important;
+                margin-bottom: 0.5rem !important;
+                background: linear-gradient(135deg, #1e293b 0%, #3b82f6 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
 
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
-        color: white !important;
-        box-shadow: 
-            0 4px 12px rgba(59, 130, 246, 0.3),
-            0 2px 4px rgba(0, 0, 0, 0.1) !important;
-    }
+            h5 {
+                color: #64748b !important;
+                font-weight: 500 !important;
+                font-size: 1.1rem !important;
+                margin-top: 0 !important;
+            }
 
-    /* ============================================
-       DATAFRAMES - TABLAS MODERNAS
-       ============================================ */
-    .stDataFrame {
-        border-radius: 12px !important;
-        overflow: hidden !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
-    }
+            h3 {
+                color: #1e293b !important;
+                font-weight: 700 !important;
+                font-size: 1.5rem !important;
+                letter-spacing: -0.5px !important;
+            }
 
-    /* Encabezados de tabla */
-    .stDataFrame thead tr th {
-        background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
-        color: white !important;
-        font-weight: 600 !important;
-        font-size: 0.85rem !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.5px !important;
-        padding: 16px 12px !important;
-        border: none !important;
-    }
+            div[data-testid="metric-container"] {
+                background: rgba(255, 255, 255, 0.7);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border: 1px solid rgba(255, 255, 255, 0.9);
+                padding: 28px 24px;
+                border-radius: 20px;
+                box-shadow: 
+                    0 8px 32px 0 rgba(31, 38, 135, 0.08),
+                    0 2px 8px 0 rgba(0, 0, 0, 0.05);
+                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                position: relative;
+                overflow: hidden;
+            }
 
-    /* Filas de tabla */
-    .stDataFrame tbody tr {
-        transition: all 0.2s ease;
-    }
+            div[data-testid="metric-container"]::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(147, 51, 234, 0.05) 100%);
+                opacity: 0;
+                transition: opacity 0.4s ease;
+                z-index: 0;
+            }
 
-    .stDataFrame tbody tr:hover {
-        background: rgba(59, 130, 246, 0.08) !important;
-        transform: scale(1.01);
-    }
+            div[data-testid="metric-container"]:hover::before {
+                opacity: 1;
+            }
 
-    /* ============================================
-       INFO/WARNING BOXES
-       ============================================ */
-    .stAlert {
-        background: rgba(255, 255, 255, 0.8) !important;
-        backdrop-filter: blur(10px) !important;
-        border-radius: 12px !important;
-        border-left: 4px solid #3b82f6 !important;
-        padding: 16px 20px !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
-    }
+            div[data-testid="metric-container"]:hover {
+                transform: translateY(-8px) scale(1.02);
+                box-shadow: 
+                    0 20px 60px 0 rgba(59, 130, 246, 0.15),
+                    0 4px 16px 0 rgba(0, 0, 0, 0.1);
+                border-color: rgba(59, 130, 246, 0.3);
+            }
 
-    /* ============================================
-       DIVISORES (SEPARADORES)
-       ============================================ */
-    hr {
-        margin: 2rem 0 !important;
-        border: none !important;
-        height: 1px !important;
-        background: linear-gradient(90deg, transparent, #cbd5e1, transparent) !important;
-    }
+            div[data-testid="metric-container"] label {
+                color: #64748b !important;
+                font-size: 0.75rem !important;
+                font-weight: 600 !important;
+                text-transform: uppercase !important;
+                letter-spacing: 1.2px !important;
+                position: relative;
+                z-index: 1;
+            }
 
-    /* ============================================
-       MARKDOWN PERSONALIZADO
-       ============================================ */
-    .stMarkdown strong {
-        color: #1e293b;
-        font-weight: 700;
-    }
+            div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
+                color: #0f172a !important;
+                font-weight: 800 !important;
+                font-size: 2.2rem !important;
+                letter-spacing: -1px !important;
+                position: relative;
+                z-index: 1;
+            }
 
-    .stMarkdown code {
-        background: rgba(59, 130, 246, 0.1);
-        color: #3b82f6;
-        padding: 4px 8px;
-        border-radius: 6px;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.9em;
-    }
+            .streamlit-expanderHeader {
+                background: rgba(255, 255, 255, 0.8);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(226, 232, 240, 0.8);
+                border-radius: 16px;
+                color: #1e293b !important;
+                font-weight: 600 !important;
+                font-size: 1.05rem !important;
+                padding: 18px 24px !important;
+                transition: all 0.3s ease;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            }
 
-    /* ============================================
-       ANIMACIONES GLOBALES
-       ============================================ */
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
+            .streamlit-expanderHeader:hover {
+                background: rgba(255, 255, 255, 0.95);
+                border-color: #3b82f6;
+                box-shadow: 0 4px 16px rgba(59, 130, 246, 0.12);
+                transform: translateX(4px);
+            }
 
-    .element-container {
-        animation: fadeIn 0.6s ease-out;
-    }
+            .streamlit-expanderContent {
+                background: rgba(255, 255, 255, 0.8);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(226, 232, 240, 0.8);
+                border-top: none;
+                border-bottom-left-radius: 16px;
+                border-bottom-right-radius: 16px;
+                padding: 28px !important;
+                margin-top: -1px;
+            }
 
-    /* ============================================
-       SCROLLBAR PERSONALIZADO
-       ============================================ */
-    ::-webkit-scrollbar {
-        width: 10px;
-        height: 10px;
-    }
+            .stTabs [data-baseweb="tab-list"] {
+                gap: 12px;
+                background: rgba(255, 255, 255, 0.6);
+                padding: 8px;
+                border-radius: 16px;
+                backdrop-filter: blur(10px);
+            }
 
-    ::-webkit-scrollbar-track {
-        background: #f1f5f9;
-        border-radius: 10px;
-    }
+            .stTabs [data-baseweb="tab"] {
+                background: transparent;
+                border-radius: 12px;
+                padding: 12px 28px;
+                font-weight: 600;
+                font-size: 0.95rem;
+                color: #64748b;
+                border: none;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                letter-spacing: 0.3px;
+            }
 
-    ::-webkit-scrollbar-thumb {
-        background: linear-gradient(135deg, #94a3b8, #64748b);
-        border-radius: 10px;
-        transition: background 0.3s;
-    }
+            .stTabs [data-baseweb="tab"]:hover {
+                background: rgba(59, 130, 246, 0.1);
+                color: #3b82f6;
+            }
 
-    ::-webkit-scrollbar-thumb:hover {
-        background: linear-gradient(135deg, #64748b, #475569);
-    }
+            .stTabs [aria-selected="true"] {
+                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+                color: white !important;
+                box-shadow: 
+                    0 4px 12px rgba(59, 130, 246, 0.3),
+                    0 2px 4px rgba(0, 0, 0, 0.1) !important;
+            }
 
-</style>
-""", unsafe_allow_html=True)
+            .stDataFrame {
+                border-radius: 12px !important;
+                overflow: hidden !important;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+            }
 
-# --- 3. CARGA DE DATOS ---
+            .stDataFrame thead tr th {
+                background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
+                color: white !important;
+                font-weight: 600 !important;
+                font-size: 0.85rem !important;
+                text-transform: uppercase !important;
+                letter-spacing: 0.5px !important;
+                padding: 16px 12px !important;
+                border: none !important;
+            }
+
+            .stDataFrame tbody tr {
+                transition: all 0.2s ease;
+            }
+
+            .stDataFrame tbody tr:hover {
+                background: rgba(59, 130, 246, 0.08) !important;
+                transform: scale(1.01);
+            }
+
+            .stAlert {
+                background: rgba(255, 255, 255, 0.8) !important;
+                backdrop-filter: blur(10px) !important;
+                border-radius: 12px !important;
+                border-left: 4px solid #3b82f6 !important;
+                padding: 16px 20px !important;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+            }
+
+            hr {
+                margin: 2rem 0 !important;
+                border: none !important;
+                height: 1px !important;
+                background: linear-gradient(90deg, transparent, #cbd5e1, transparent) !important;
+            }
+
+            .stMarkdown code {
+                background: rgba(59, 130, 246, 0.1);
+                color: #3b82f6;
+                padding: 4px 8px;
+                border-radius: 6px;
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 0.9em;
+            }
+
+            ::-webkit-scrollbar {
+                width: 10px;
+                height: 10px;
+            }
+
+            ::-webkit-scrollbar-track {
+                background: #f1f5f9;
+                border-radius: 10px;
+            }
+
+            ::-webkit-scrollbar-thumb {
+                background: linear-gradient(135deg, #94a3b8, #64748b);
+                border-radius: 10px;
+                transition: background 0.3s;
+            }
+
+            ::-webkit-scrollbar-thumb:hover {
+                background: linear-gradient(135deg, #64748b, #475569);
+            }
+
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+
+            .element-container {
+                animation: fadeIn 0.6s ease-out;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+
+# --- 3. FUNCIONES DE CARGA Y PROCESAMIENTO ---
 @st.cache_data
 def load_data():
     file_path = "Sistema_Radio_Completo.xlsx"
@@ -322,15 +364,13 @@ def load_data():
         df['Rol'] = df['Tipo Vinculo'].apply(lambda x: 'Master' if 'Master' in str(x) else 'Peer')
         return df
     except Exception as e:
+        st.error(f"Error al cargar datos: {e}")
         return pd.DataFrame()
 
-df = load_data()
-
-# --- 4. FUNCIÓN DE ESTILO MEJORADA ---
+# --- 4. FUNCIÓN DE ESTILOS PARA TABLAS ---
 def premium_style(df_input):
     def highlight_rows(row):
         if row['Rol'] == 'Master':
-            # Gradiente azul para Master
             return [
                 'background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); '
                 'color: #1e40af; '
@@ -338,7 +378,6 @@ def premium_style(df_input):
                 'border-left: 4px solid #3b82f6;'
             ] * len(row)
         else:
-            # Blanco limpio para Peer
             return [
                 'background: white; '
                 'color: #475569; '
@@ -353,12 +392,242 @@ def premium_style(df_input):
                             'border-bottom': '1px solid #f1f5f9'
                         })
 
-# --- 5. INTERFAZ MEJORADA ---
+# --- 5. FUNCIONES DE ANÁLISIS ---
+def check_system_health(dataframe):
+    """Detecta anomalías en la configuración"""
+    issues = []
+    
+    for system in dataframe['Sistema_Logico'].unique():
+        system_df = dataframe[dataframe['Sistema_Logico'] == system]
+        masters = system_df[system_df['Rol'] == 'Master']
+        
+        if len(masters) == 0:
+            issues.append(('error', f"⚠️ **{system}** no tiene Master asignado"))
+        elif len(masters) > 1:
+            issues.append(('warning', f"⚡ **{system}** tiene múltiples Masters ({len(masters)})"))
+    
+    duplicate_ips = dataframe[dataframe.duplicated(subset=['IP Ethernet'], keep=False)]
+    if not duplicate_ips.empty:
+        issues.append(('error', f"🔴 Detectadas {len(duplicate_ips)} IPs duplicadas"))
+    
+    return issues
+
+# --- 6. FUNCIONES DE EXPORTACIÓN ---
+@st.cache_data
+def convert_df_to_csv(dataframe):
+    return dataframe.to_csv(index=False).encode('utf-8')
+
+def to_excel(dataframe):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        dataframe.to_excel(writer, index=False, sheet_name='Radios')
+        
+        # Agregar hoja de resumen
+        summary_data = {
+            'Métrica': [
+                'Total Radios',
+                'Total Masters',
+                'Total Peers',
+                'Sistemas Lógicos',
+                'Sitios Físicos',
+                'Fecha Reporte'
+            ],
+            'Valor': [
+                len(dataframe),
+                len(dataframe[dataframe['Rol'] == 'Master']),
+                len(dataframe[dataframe['Rol'] == 'Peer']),
+                dataframe['Sistema_Logico'].nunique(),
+                dataframe['Cerro'].nunique(),
+                datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            ]
+        }
+        pd.DataFrame(summary_data).to_excel(writer, index=False, sheet_name='Resumen')
+    
+    return output.getvalue()
+
+# --- 7. FUNCIÓN PARA CREAR TOPOLOGÍA DE RED ---
+def create_network_diagram(dataframe, system_name):
+    """Crea un diagrama de red Master-Peer"""
+    system_df = dataframe[dataframe['Sistema_Logico'] == system_name]
+    
+    G = nx.Graph()
+    master = system_df[system_df['Rol'] == 'Master']
+    
+    if master.empty:
+        return None
+    
+    master_node = master.iloc[0]['Alias']
+    G.add_node(master_node, role='Master', site=master.iloc[0]['Cerro'])
+    
+    for _, peer in system_df[system_df['Rol'] == 'Peer'].iterrows():
+        peer_node = peer['Alias']
+        G.add_node(peer_node, role='Peer', site=peer['Cerro'])
+        G.add_edge(master_node, peer_node)
+    
+    pos = nx.spring_layout(G, k=2, iterations=50)
+    
+    edge_x = []
+    edge_y = []
+    for edge in G.edges():
+        x0, y0 = pos[edge[0]]
+        x1, y1 = pos[edge[1]]
+        edge_x.extend([x0, x1, None])
+        edge_y.extend([y0, y1, None])
+    
+    edge_trace = go.Scatter(
+        x=edge_x, y=edge_y,
+        line=dict(width=2, color='#94a3b8'),
+        hoverinfo='none',
+        mode='lines'
+    )
+    
+    node_x = []
+    node_y = []
+    node_text = []
+    node_color = []
+    node_size = []
+    
+    for node in G.nodes():
+        x, y = pos[node]
+        node_x.append(x)
+        node_y.append(y)
+        node_text.append(f"{node}<br>Sitio: {G.nodes[node]['site']}")
+        
+        if G.nodes[node]['role'] == 'Master':
+            node_color.append('#3b82f6')
+            node_size.append(50)
+        else:
+            node_color.append('#94a3b8')
+            node_size.append(30)
+    
+    node_trace = go.Scatter(
+        x=node_x, y=node_y,
+        mode='markers+text',
+        hoverinfo='text',
+        text=[n.split('<br>')[0] for n in node_text],
+        hovertext=node_text,
+        textposition="top center",
+        marker=dict(
+            size=node_size,
+            color=node_color,
+            line_width=2,
+            line_color='white'
+        )
+    )
+    
+    fig = go.Figure(data=[edge_trace, node_trace])
+    fig.update_layout(
+        showlegend=False,
+        hovermode='closest',
+        margin=dict(b=20, l=5, r=5, t=40),
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        height=500,
+        title=dict(text=f"Topología de Red: {system_name}", x=0.5, xanchor='center'),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
+    )
+    
+    return fig
+
+# ============================================
+# INICIO DE LA APLICACIÓN
+# ============================================
+
+# Cargar datos
+df = load_data()
+
 if df.empty:
-    st.error("⚠️ No se encontraron datos. Verifica el archivo Excel.")
+    st.error("⚠️ No se encontraron datos. Verifica que el archivo 'Sistema_Radio_Completo.xlsx' esté en el directorio.")
     st.stop()
 
-# Header con icono personalizado
+# ============================================
+# SIDEBAR - FILTROS Y CONFIGURACIÓN
+# ============================================
+with st.sidebar:
+    st.markdown("### ⚙️ Configuración")
+    
+    # Modo Oscuro
+    dark_mode = st.toggle("🌙 Modo Oscuro", value=False)
+    
+    st.markdown("---")
+    st.markdown("### 🔍 Filtros Avanzados")
+    
+    # Búsqueda
+    search_term = st.text_input("🔎 Buscar (ID/Alias/IP)", "", placeholder="Ejemplo: 101 o CO2")
+    
+    # Filtros multi-select
+    selected_systems = st.multiselect(
+        "📊 Sistemas Lógicos",
+        options=sorted(df['Sistema_Logico'].unique()),
+        default=sorted(df['Sistema_Logico'].unique())
+    )
+    
+    selected_sites = st.multiselect(
+        "🏔️ Sitios Físicos",
+        options=sorted(df['Cerro'].unique()),
+        default=sorted(df['Cerro'].unique())
+    )
+    
+    selected_roles = st.multiselect(
+        "👑 Tipo de Radio",
+        options=['Master', 'Peer'],
+        default=['Master', 'Peer']
+    )
+    
+    # Aplicar filtros
+    df_filtered = df[
+        (df['Sistema_Logico'].isin(selected_systems)) &
+        (df['Cerro'].isin(selected_sites)) &
+        (df['Rol'].isin(selected_roles))
+    ]
+    
+    if search_term:
+        df_filtered = df_filtered[
+            df_filtered['ID'].astype(str).str.contains(search_term, case=False) |
+            df_filtered['Alias'].str.contains(search_term, case=False, na=False) |
+            df_filtered['IP Ethernet'].str.contains(search_term, case=False, na=False)
+        ]
+    
+    st.markdown("---")
+    st.metric("🎯 Resultados", len(df_filtered))
+    
+    # Exportación
+    st.markdown("---")
+    st.markdown("### 📥 Exportar Datos")
+    
+    csv = convert_df_to_csv(df_filtered)
+    st.download_button(
+        label="💾 CSV",
+        data=csv,
+        file_name=f'radios_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv',
+        mime='text/csv',
+        use_container_width=True
+    )
+    
+    excel_data = to_excel(df_filtered)
+    st.download_button(
+        label="📊 Excel",
+        data=excel_data,
+        file_name=f'reporte_radios_{datetime.now().strftime("%Y%m%d")}.xlsx',
+        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        use_container_width=True
+    )
+    
+    # Acciones rápidas
+    st.markdown("---")
+    st.markdown("### ⚡ Acciones")
+    
+    if st.button("🔄 Refrescar", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+
+# Aplicar tema
+apply_custom_css(dark_mode)
+
+# ============================================
+# HEADER
+# ============================================
 st.markdown("""
 <div style='text-align: left; margin-bottom: 1rem;'>
     <span style='font-size: 3.5rem; background: linear-gradient(135deg, #3b82f6, #8b5cf6); 
@@ -372,28 +641,53 @@ st.title("Minera Zaldívar")
 st.markdown("##### 📊 Monitor de Infraestructura IPSC")
 st.markdown("<br>", unsafe_allow_html=True)
 
-# KPIs con iconos mejorados
-col1, col2, col3, col4 = st.columns(4)
+# ============================================
+# PANEL DE ALERTAS
+# ============================================
+issues = check_system_health(df_filtered)
+if issues:
+    with st.expander("🚨 Alertas del Sistema", expanded=True):
+        for severity, message in issues:
+            if severity == 'error':
+                st.error(message)
+            elif severity == 'warning':
+                st.warning(message)
+
+# ============================================
+# KPIs PRINCIPALES
+# ============================================
+col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
     st.metric(
         label="🎯 SISTEMAS",
-        value=df['Sistema_Logico'].nunique()
+        value=df_filtered['Sistema_Logico'].nunique(),
+        delta=f"{df['Sistema_Logico'].nunique()} total"
     )
 
 with col2:
     st.metric(
-        label="🏔️ SITIOS FÍSICOS",
-        value=df['Cerro'].nunique()
+        label="🏔️ SITIOS",
+        value=df_filtered['Cerro'].nunique(),
+        delta=f"{df['Cerro'].nunique()} total"
     )
 
 with col3:
     st.metric(
-        label="📻 TOTAL RADIOS",
-        value=len(df)
+        label="📻 RADIOS",
+        value=len(df_filtered),
+        delta=f"{len(df)} total"
     )
 
 with col4:
+    masters_count = len(df_filtered[df_filtered['Rol'] == 'Master'])
+    st.metric(
+        label="👑 MASTERS",
+        value=masters_count,
+        delta=f"{(masters_count/len(df_filtered)*100):.1f}%"
+    )
+
+with col5:
     st.metric(
         label="🌐 GATEWAY",
         value="10.70.140.1"
@@ -401,12 +695,146 @@ with col4:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Tabs
-tab1, tab2, tab3 = st.tabs(["🌐 Sistemas Lógicos", "🏔️ Sitios Físicos", "📊 Matriz de Distribución"])
+# ============================================
+# DASHBOARD DE ANÁLISIS
+# ============================================
+st.markdown("### 📊 Análisis de Distribución")
 
-# ========================================
-# TAB 1: SISTEMAS LÓGICOS
-# ========================================
+col_chart1, col_chart2 = st.columns(2)
+
+with col_chart1:
+    # Gráfico de distribución por sistema
+    system_counts = df_filtered.groupby('Sistema_Logico').size().reset_index(name='Total')
+    fig_bar = px.bar(
+        system_counts,
+        x='Sistema_Logico',
+        y='Total',
+        color='Total',
+        color_continuous_scale='Blues',
+        title="Radios por Sistema Lógico",
+        labels={'Sistema_Logico': '', 'Total': 'Cantidad'}
+    )
+    fig_bar.update_layout(
+        showlegend=False,
+        height=400,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(family='Inter', size=12)
+    )
+    st.plotly_chart(fig_bar, use_container_width=True)
+
+with col_chart2:
+    # Gráfico Master vs Peer
+    role_count = df_filtered.groupby(['Sistema_Logico', 'Rol']).size().reset_index(name='count')
+    fig_stack = px.bar(
+        role_count,
+        x='Sistema_Logico',
+        y='count',
+        color='Rol',
+        title="Distribución Master vs Peer",
+        labels={'Sistema_Logico': '', 'count': 'Cantidad'},
+        color_discrete_map={'Master': '#3b82f6', 'Peer': '#94a3b8'},
+        barmode='stack'
+    )
+    fig_stack.update_layout(
+        height=400,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(family='Inter', size=12)
+    )
+    st.plotly_chart(fig_stack, use_container_width=True)
+
+# Gráfico de dona
+col_donut, col_stats = st.columns([2, 1])
+
+with col_donut:
+    fig_donut = px.pie(
+        system_counts,
+        values='Total',
+        names='Sistema_Logico',
+        hole=0.6,
+        title="Proporción de Equipos por Sistema",
+        color_discrete_sequence=px.colors.sequential.Blues_r
+    )
+    fig_donut.update_traces(textposition='inside', textinfo='percent+label', textfont_size=12)
+    fig_donut.update_layout(
+        showlegend=True,
+        height=400,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(family='Inter', size=12),
+        legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.1)
+    )
+    st.plotly_chart(fig_donut, use_container_width=True)
+
+with col_stats:
+    st.markdown("#### 📈 Estadísticas")
+    
+    st.markdown(f"""
+    <div style='background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); 
+                padding: 16px; border-radius: 12px; margin-bottom: 12px; border-left: 4px solid #3b82f6;'>
+        <div style='font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase; 
+                    letter-spacing: 1px; margin-bottom: 8px;'>
+            COBERTURA
+        </div>
+        <div style='font-size: 2rem; font-weight: 800; color: #1e293b;'>
+            {df_filtered['Cerro'].nunique()}/{df['Cerro'].nunique()}
+        </div>
+        <div style='font-size: 0.85rem; color: #475569;'>
+            Sitios activos
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    ratio_master_peer = len(df_filtered[df_filtered['Rol'] == 'Master']) / len(df_filtered[df_filtered['Rol'] == 'Peer']) if len(df_filtered[df_filtered['Rol'] == 'Peer']) > 0 else 0
+    
+    st.markdown(f"""
+    <div style='background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); 
+                padding: 16px; border-radius: 12px; margin-bottom: 12px; border-left: 4px solid #f59e0b;'>
+        <div style='font-size: 0.75rem; color: #92400e; font-weight: 600; text-transform: uppercase; 
+                    letter-spacing: 1px; margin-bottom: 8px;'>
+            RATIO M:P
+        </div>
+        <div style='font-size: 2rem; font-weight: 800; color: #78350f;'>
+            1:{ratio_master_peer:.1f}
+        </div>
+        <div style='font-size: 0.85rem; color: #92400e;'>
+            Master por Peer
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    avg_radios = len(df_filtered) / df_filtered['Cerro'].nunique() if df_filtered['Cerro'].nunique() > 0 else 0
+    
+    st.markdown(f"""
+    <div style='background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); 
+                padding: 16px; border-radius: 12px; border-left: 4px solid #3b82f6;'>
+        <div style='font-size: 0.75rem; color: #1e40af; font-weight: 600; text-transform: uppercase; 
+                    letter-spacing: 1px; margin-bottom: 8px;'>
+            PROMEDIO
+        </div>
+        <div style='font-size: 2rem; font-weight: 800; color: #1e3a8a;'>
+            {avg_radios:.1f}
+        </div>
+        <div style='font-size: 0.85rem; color: #1e40af;'>
+            Radios por sitio
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ============================================
+# TABS PRINCIPALES
+# ============================================
+tab1, tab2, tab3, tab4 = st.tabs([
+    "🌐 Sistemas Lógicos", 
+    "🏔️ Sitios Físicos", 
+    "🗺️ Topología de Red",
+    "📊 Matriz de Distribución"
+])
+
+# --- TAB 1: SISTEMAS LÓGICOS ---
 with tab1:
     st.markdown("""
     <div style='background: rgba(59, 130, 246, 0.1); padding: 16px 20px; border-radius: 12px; 
@@ -417,9 +845,8 @@ with tab1:
     </div>
     """, unsafe_allow_html=True)
     
-    systems = sorted(df['Sistema_Logico'].unique())
+    systems = sorted(df_filtered['Sistema_Logico'].unique())
     
-    # Mapeo de iconos por sistema
     system_icons = {
         "Prevención - Negrillar": "🚨",
         "Apilado": "📦",
@@ -433,14 +860,13 @@ with tab1:
     
     for i, sys in enumerate(systems):
         with cols[i % 2]:
-            sub_df = df[df['Sistema_Logico'] == sys].copy()
+            sub_df = df_filtered[df_filtered['Sistema_Logico'] == sys].copy()
             master_data = sub_df[sub_df['Rol'] == 'Master']
             master_loc = master_data.iloc[0]['Cerro'] if not master_data.empty else "N/A"
             
             icon = system_icons.get(sys, "⚙️")
             
             with st.expander(f"{icon} **{sys}**", expanded=(i < 2)):
-                # Info del master
                 st.markdown(f"""
                 <div style='background: rgba(255, 255, 255, 0.6); padding: 12px 16px; 
                             border-radius: 10px; margin-bottom: 16px; 
@@ -462,15 +888,13 @@ with tab1:
                     height=min(400, len(display_df) * 50 + 50)
                 )
 
-# ========================================
-# TAB 2: SITIOS FÍSICOS
-# ========================================
+# --- TAB 2: SITIOS FÍSICOS ---
 with tab2:
-    sites = sorted(df['Cerro'].unique())
+    sites = sorted(df_filtered['Cerro'].unique())
     
     for site in sites:
         with st.expander(f"📍 **{site}**", expanded=False):
-            sub_df = df[df['Cerro'] == site].copy()
+            sub_df = df_filtered[df_filtered['Cerro'] == site].copy()
             
             c1, c2 = st.columns([1, 3])
             
@@ -478,7 +902,6 @@ with tab2:
                 masters_count = len(sub_df[sub_df['Rol'] == 'Master'])
                 total_count = len(sub_df)
                 
-                # Card de resumen
                 st.markdown(f"""
                 <div style='background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); 
                             padding: 20px; border-radius: 12px; text-align: center; 
@@ -520,15 +943,45 @@ with tab2:
                     height=min(400, len(display_df) * 50 + 50)
                 )
 
-# ========================================
-# TAB 3: MATRIZ
-# ========================================
+# --- TAB 3: TOPOLOGÍA DE RED ---
 with tab3:
+    st.markdown("### 🗺️ Diagramas de Topología Master-Peer")
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    systems_with_data = sorted(df_filtered['Sistema_Logico'].unique())
+    
+    selected_system_topo = st.selectbox(
+        "Selecciona un sistema para visualizar su topología:",
+        options=systems_with_data,
+        index=0
+    )
+    
+    if selected_system_topo:
+        fig_network = create_network_diagram(df_filtered, selected_system_topo)
+        
+        if fig_network:
+            st.plotly_chart(fig_network, use_container_width=True)
+            
+            # Info adicional
+            system_info = df_filtered[df_filtered['Sistema_Logico'] == selected_system_topo]
+            col_info1, col_info2, col_info3 = st.columns(3)
+            
+            with col_info1:
+                st.metric("Total Nodos", len(system_info))
+            with col_info2:
+                st.metric("Master", len(system_info[system_info['Rol'] == 'Master']))
+            with col_info3:
+                st.metric("Peers", len(system_info[system_info['Rol'] == 'Peer']))
+        else:
+            st.warning(f"No se pudo generar el diagrama para **{selected_system_topo}**. Verifica que tenga un Master asignado.")
+
+# --- TAB 4: MATRIZ ---
+with tab4:
     st.markdown("### 🗺️ Mapa de Distribución de Equipos")
     st.markdown("<br>", unsafe_allow_html=True)
     
     pivot = pd.pivot_table(
-        df,
+        df_filtered,
         index='Sistema_Logico',
         columns='Cerro',
         values='Rol',
@@ -580,11 +1033,14 @@ with tab3:
         </div>
         """, unsafe_allow_html=True)
 
-# Footer
+# ============================================
+# FOOTER
+# ============================================
 st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown("""
 <div style='text-align: center; color: #94a3b8; font-size: 0.85rem; 
             padding: 20px; border-top: 1px solid #e2e8f0;'>
-    <strong>Minera Zaldívar</strong> • Monitor IPSC • 2026
+    <strong>Minera Zaldívar</strong> • Monitor de Infraestructura IPSC • 2026<br>
+    <small>Última actualización: {}</small>
 </div>
-""", unsafe_allow_html=True)
+""".format(datetime.now().strftime('%d/%m/%Y %H:%M:%S')), unsafe_allow_html=True)
