@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import networkx as nx
 from io import BytesIO
 from datetime import datetime
 
@@ -445,91 +444,6 @@ def to_excel(dataframe):
     
     return output.getvalue()
 
-# --- 7. FUNCIÓN PARA CREAR TOPOLOGÍA DE RED ---
-def create_network_diagram(dataframe, system_name):
-    """Crea un diagrama de red Master-Peer"""
-    system_df = dataframe[dataframe['Sistema_Logico'] == system_name]
-    
-    G = nx.Graph()
-    master = system_df[system_df['Rol'] == 'Master']
-    
-    if master.empty:
-        return None
-    
-    master_node = master.iloc[0]['Alias']
-    G.add_node(master_node, role='Master', site=master.iloc[0]['Cerro'])
-    
-    for _, peer in system_df[system_df['Rol'] == 'Peer'].iterrows():
-        peer_node = peer['Alias']
-        G.add_node(peer_node, role='Peer', site=peer['Cerro'])
-        G.add_edge(master_node, peer_node)
-    
-    pos = nx.spring_layout(G, k=2, iterations=50)
-    
-    edge_x = []
-    edge_y = []
-    for edge in G.edges():
-        x0, y0 = pos[edge[0]]
-        x1, y1 = pos[edge[1]]
-        edge_x.extend([x0, x1, None])
-        edge_y.extend([y0, y1, None])
-    
-    edge_trace = go.Scatter(
-        x=edge_x, y=edge_y,
-        line=dict(width=2, color='#94a3b8'),
-        hoverinfo='none',
-        mode='lines'
-    )
-    
-    node_x = []
-    node_y = []
-    node_text = []
-    node_color = []
-    node_size = []
-    
-    for node in G.nodes():
-        x, y = pos[node]
-        node_x.append(x)
-        node_y.append(y)
-        node_text.append(f"{node}<br>Sitio: {G.nodes[node]['site']}")
-        
-        if G.nodes[node]['role'] == 'Master':
-            node_color.append('#3b82f6')
-            node_size.append(50)
-        else:
-            node_color.append('#94a3b8')
-            node_size.append(30)
-    
-    node_trace = go.Scatter(
-        x=node_x, y=node_y,
-        mode='markers+text',
-        hoverinfo='text',
-        text=[n.split('<br>')[0] for n in node_text],
-        hovertext=node_text,
-        textposition="top center",
-        marker=dict(
-            size=node_size,
-            color=node_color,
-            line_width=2,
-            line_color='white'
-        )
-    )
-    
-    fig = go.Figure(data=[edge_trace, node_trace])
-    fig.update_layout(
-        showlegend=False,
-        hovermode='closest',
-        margin=dict(b=20, l=5, r=5, t=40),
-        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-        height=500,
-        title=dict(text=f"Topología de Red: {system_name}", x=0.5, xanchor='center'),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)'
-    )
-    
-    return fig
-
 # ============================================
 # INICIO DE LA APLICACIÓN
 # ============================================
@@ -827,10 +741,9 @@ st.markdown("<br>", unsafe_allow_html=True)
 # ============================================
 # TABS PRINCIPALES
 # ============================================
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3 = st.tabs([
     "🌐 Sistemas Lógicos", 
     "🏔️ Sitios Físicos", 
-    "🗺️ Topología de Red",
     "📊 Matriz de Distribución"
 ])
 
@@ -943,40 +856,8 @@ with tab2:
                     height=min(400, len(display_df) * 50 + 50)
                 )
 
-# --- TAB 3: TOPOLOGÍA DE RED ---
+# --- TAB 3: MATRIZ ---
 with tab3:
-    st.markdown("### 🗺️ Diagramas de Topología Master-Peer")
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    systems_with_data = sorted(df_filtered['Sistema_Logico'].unique())
-    
-    selected_system_topo = st.selectbox(
-        "Selecciona un sistema para visualizar su topología:",
-        options=systems_with_data,
-        index=0
-    )
-    
-    if selected_system_topo:
-        fig_network = create_network_diagram(df_filtered, selected_system_topo)
-        
-        if fig_network:
-            st.plotly_chart(fig_network, use_container_width=True)
-            
-            # Info adicional
-            system_info = df_filtered[df_filtered['Sistema_Logico'] == selected_system_topo]
-            col_info1, col_info2, col_info3 = st.columns(3)
-            
-            with col_info1:
-                st.metric("Total Nodos", len(system_info))
-            with col_info2:
-                st.metric("Master", len(system_info[system_info['Rol'] == 'Master']))
-            with col_info3:
-                st.metric("Peers", len(system_info[system_info['Rol'] == 'Peer']))
-        else:
-            st.warning(f"No se pudo generar el diagrama para **{selected_system_topo}**. Verifica que tenga un Master asignado.")
-
-# --- TAB 4: MATRIZ ---
-with tab4:
     st.markdown("### 🗺️ Mapa de Distribución de Equipos")
     st.markdown("<br>", unsafe_allow_html=True)
     
