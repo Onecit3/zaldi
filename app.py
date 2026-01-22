@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-# --- 1. CONFIGURACIÓN DE PÁGINA ---
+# --- 1. CONFIGURACIÓN VISUAL ---
 st.set_page_config(
     page_title="Zaldívar IPSC Monitor",
     layout="wide",
@@ -9,93 +9,99 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. CSS PARA MODO CLARO (Light Mode) ---
+# Estilos CSS Personalizados (Dark/Modern Theme)
 st.markdown("""
 <style>
-    /* Fuente Global */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-    
-    html, body, [class*="css"]  {
-        font-family: 'Inter', sans-serif;
-        color: #1f2937; /* Gris Oscuro para texto */
-    }
-
-    /* Fondo de la Aplicación */
+    /* Fondo General y Fuente */
     .stApp {
-        background-color: #f8f9fa; /* Gris muy claro (Casi blanco) */
+        background-color: #0e1117;
+        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     }
-
-    /* TABS (Pestañas) */
+    
+    /* Personalización de los TABS */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: transparent;
+        gap: 10px;
     }
     .stTabs [data-baseweb="tab"] {
-        height: 45px;
-        background-color: #ffffff;
-        border-radius: 6px;
-        border: 1px solid #e5e7eb;
-        color: #6b7280;
-        font-weight: 600;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        height: 50px;
+        white-space: pre-wrap;
+        background-color: #1f2937;
+        border-radius: 4px 4px 0 0;
+        gap: 1px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        color: #9ca3af;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #2563eb !important; /* Azul Corporativo */
+        background-color: #3b82f6 !important;
         color: white !important;
-        border: none;
+        font-weight: bold;
     }
 
-    /* TARJETAS DE MÉTRICAS (KPIs) */
-    div[data-testid="metric-container"] {
-        background-color: #ffffff;
-        border: 1px solid #e5e7eb;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        border-left: 5px solid #2563eb; /* Acento Azul */
-    }
-    div[data-testid="metric-container"] label {
-        color: #64748b; /* Slate 500 */
-        font-size: 0.9rem;
-    }
-    div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
-        color: #111827; /* Casi negro */
-        font-size: 1.8rem;
-    }
-
-    /* EXPANDERS (Acordeones/Tarjetas) */
+    /* Tarjetas Expandibles (Expander) */
     .streamlit-expanderHeader {
-        background-color: #ffffff;
-        border: 1px solid #e5e7eb;
+        background-color: #1f2937;
+        color: #e5e7eb;
+        border: 1px solid #374151;
         border-radius: 8px;
-        color: #1f2937;
-        font-weight: 700;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        transition: all 0.3s ease;
+    }
+    .streamlit-expanderHeader:hover {
+        border-color: #60a5fa;
+        color: #60a5fa;
     }
     .streamlit-expanderContent {
-        background-color: #ffffff;
-        border: 1px solid #e5e7eb;
+        background-color: #111827;
+        border: 1px solid #374151;
         border-top: none;
-        padding: 20px;
+        color: #d1d5db;
+        padding: 15px !important;
     }
 
-    /* Títulos */
-    h1 { color: #111827 !important; letter-spacing: -0.5px; }
-    h2, h3 { color: #374151 !important; }
+    /* Métricas (KPIs) */
+    div[data-testid="metric-container"] {
+        background-color: #1f2937;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 4px solid #3b82f6;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+    }
+    div[data-testid="metric-container"] label {
+        color: #9ca3af;
+    }
+    div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
+        color: #f3f4f6;
+    }
+
+    /* Títulos y textos */
+    h1, h2, h3 {
+        color: #f3f4f6 !important;
+    }
+    p, li {
+        color: #d1d5db;
+    }
     
+    /* Badges personalizados para Master/Peer en Dataframes */
+    .role-badge {
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-weight: bold;
+        font-size: 0.8em;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. CARGA Y PROCESAMIENTO DE DATOS ---
+# --- 2. CARGA DE DATOS ---
 @st.cache_data
 def load_data():
+    # Asegúrate de que el archivo esté en el repo de GitHub
     file_path = "Sistema_Radio_Completo.xlsx"
     try:
         df = pd.read_excel(file_path, header=3)
         df = df.dropna(subset=['ID'])
         df['ID'] = pd.to_numeric(df['ID'], errors='coerce').fillna(0).astype(int)
         
-        # Mapeo de Sistemas
+        # Lógica de agrupación
         def get_system(id_val):
             if 100 <= id_val < 200: return "Prevención - Negrillar"
             elif 200 <= id_val < 300: return "Apilado"
@@ -106,109 +112,127 @@ def load_data():
             
         df['Sistema_Logico'] = df['ID'].apply(get_system)
         
-        # Simplificar Rol
+        # Limpieza de columnas clave
         df['Rol'] = df['Tipo Vinculo'].apply(lambda x: 'Master' if 'Master' in str(x) else 'Peer')
-        
         return df
     except Exception as e:
         return pd.DataFrame()
 
 df = load_data()
 
-# --- FUNCIÓN DE ESTILO (HIGHLIGHT) ---
-def style_dataframe(df_input):
-    """
-    Colorea de rojo suave la fila completa si es Master.
-    Colorea de verde suave si es Peer.
-    """
-    def highlight_rows(row):
-        if row['Rol'] == 'Master':
-            return ['background-color: #fef2f2; color: #991b1b; font-weight: bold'] * len(row) # Rojo suave
-        else:
-            return ['background-color: #f0fdf4; color: #166534'] * len(row) # Verde suave
-            
-    return df_input.style.apply(highlight_rows, axis=1)
+# --- 3. HEADER Y KPIs ---
 
-# --- 4. INTERFAZ DE USUARIO ---
-
+# Si no hay datos, mostrar aviso amable
 if df.empty:
-    st.error("⚠️ No se encontraron datos. Sube el archivo 'Sistema_Radio_Completo.xlsx' al repositorio.")
+    st.warning("⚠️ No se pudo cargar 'Sistema_Radio_Completo.xlsx'. Por favor verifica que el archivo esté en el repositorio.")
     st.stop()
 
-# Header
-st.title("Minera Zaldívar")
-st.markdown("##### 📡 Monitor de Infraestructura IPSC")
-st.divider()
+st.title("📡 Minera Zaldívar")
+st.markdown("##### Centro de Control IP Site Connect")
+st.markdown("---")
 
-# KPIs
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Sistemas", df['Sistema_Logico'].nunique())
-c2.metric("Sitios Físicos", df['Cerro'].nunique())
-c3.metric("Repetidores", len(df))
-c4.metric("Gateway", "10.70.140.1")
+# KPIs Superiores
+k1, k2, k3, k4 = st.columns(4)
+k1.metric("Sistemas Lógicos", df['Sistema_Logico'].nunique())
+k2.metric("Sitios Físicos (Cerros)", df['Cerro'].nunique())
+k3.metric("Total Repetidores", len(df))
+k4.metric("Gateway", "10.70.140.1")
 
-st.markdown("###")
+st.markdown("###") # Espacio
 
-# TABS
-tab_logic, tab_phys, tab_matrix = st.tabs(["🌐 Vista Lógica", "🏔️ Vista Física", "📊 Matriz"])
+# --- 4. CONTENIDO POR PESTAÑAS (TABS) ---
+tab_logico, tab_fisico, tab_matriz = st.tabs(["🌐 Vista Lógica (Sistemas)", "🏔️ Vista Física (Cerros)", "📊 Matriz Resumen"])
 
-# VISTA LÓGICA
-with tab_logic:
-    st.info("💡 Las filas rojas indican el equipo **MASTER** del sistema.")
+# --- PESTAÑA 1: SISTEMAS LÓGICOS ---
+with tab_logico:
+    st.markdown("### Distribución por Grupos de Servicio")
     
     systems = sorted(df['Sistema_Logico'].unique())
+    
+    # Creamos un grid de 2 columnas para las tarjetas
     cols = st.columns(2)
     
     for i, sys in enumerate(systems):
-        with cols[i % 2]:
+        with cols[i % 2]: # Alternar columnas
             sub_df = df[df['Sistema_Logico'] == sys].copy()
-            master_loc = sub_df[sub_df['Rol'] == 'Master'].iloc[0]['Cerro'] if not sub_df[sub_df['Rol'] == 'Master'].empty else "N/A"
             
-            with st.expander(f"{sys}  (Master en {master_loc})", expanded=True):
-                # Preparamos columnas
-                display_df = sub_df[['Cerro', 'Alias', 'ID', 'IP Ethernet', 'Rol']]
-                # APLICAMOS EL ESTILO
-                st.dataframe(style_dataframe(display_df), use_container_width=True, hide_index=True)
-
-# VISTA FÍSICA
-with tab_phys:
-    sites = sorted(df['Cerro'].unique())
-    
-    for site in sites:
-        with st.expander(f"📍 {site}", expanded=False):
-            sub_df = df[df['Cerro'] == site].copy()
+            # Buscar Master
+            master_row = sub_df[sub_df['Rol'] == 'Master']
+            master_loc = master_row.iloc[0]['Cerro'] if not master_row.empty else "N/A"
+            num_sites = len(sub_df)
             
-            col_a, col_b = st.columns([1, 3])
-            with col_a:
-                st.markdown("**Resumen:**")
-                n_masters = len(sub_df[sub_df['Rol'] == 'Master'])
-                st.write(f"- Equipos: {len(sub_df)}")
-                st.write(f"- Masters: {n_masters}")
-                if n_masters > 0:
-                    st.warning("⚠️ Sitio Crítico (Aloja Master)")
+            # Título de la tarjeta con emoji e info resumen
+            card_title = f"{sys}  |  📍 Master: {master_loc}  |  📡 {num_sites} Sitios"
+            
+            with st.expander(card_title, expanded=True):
+                # Preparamos dataframe para mostrar
+                display_df = sub_df[['Cerro', 'ID', 'IP Ethernet', 'Rol', 'RX (MHz)']]
                 
-            with col_b:
-                display_df = sub_df[['Sistema_Logico', 'Alias', 'ID', 'Rol', 'RX (MHz)']]
-                # APLICAMOS EL ESTILO
-                st.dataframe(style_dataframe(display_df), use_container_width=True, hide_index=True)
+                # Usamos column_config para iconos y barras
+                st.dataframe(
+                    display_df,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Rol": st.column_config.TextColumn(
+                            "Rol de Red",
+                            width="small",
+                            help="Master controla la sincronización",
+                        ),
+                        "IP Ethernet": st.column_config.TextColumn(
+                            "IP Address",
+                            width="medium",
+                        ),
+                        "Cerro": st.column_config.TextColumn(
+                            "Ubicación",
+                            width="medium",
+                        ),
+                    }
+                )
+                
+                # Pequeña barra visual de progreso o estado
+                st.progress(100, text="Estado del Sistema: Operativo")
 
-# MATRIZ
-with tab_matrix:
-    st.markdown("### Mapa de Calor de Roles")
+# --- PESTAÑA 2: UBICACIÓN FÍSICA ---
+with tab_fisico:
+    st.markdown("### Inventario por Ubicación Geográfica")
+    
+    sites = sorted(df['Cerro'].unique())
+    cols_phys = st.columns(2)
+    
+    for i, site in enumerate(sites):
+        with cols_phys[i % 2]:
+            sub_df = df[df['Cerro'] == site]
+            sistemas_presentes = sub_df['Sistema_Logico'].unique()
+            
+            with st.expander(f"🏔️ {site}", expanded=False):
+                c1, c2 = st.columns([1, 2])
+                
+                with c1:
+                    st.caption("Sistemas Alojados")
+                    for s in sistemas_presentes:
+                        st.markdown(f"- **{s}**")
+                        
+                with c2:
+                    st.caption("Detalle Técnico")
+                    st.dataframe(
+                        sub_df[['Sistema_Logico', 'ID', 'Rol']],
+                        hide_index=True,
+                        use_container_width=True
+                    )
+
+# --- PESTAÑA 3: MATRIZ ---
+with tab_matriz:
+    st.markdown("### Matriz de Cobertura Cruzada")
+    
+    # Crear una matriz visual con Pandas
     pivot = pd.pivot_table(
         df, 
         index='Sistema_Logico', 
         columns='Cerro', 
         values='Rol', 
-        aggfunc=lambda x: '👑 MASTER' if 'Master' in str(x) else '🟢 Peer'
+        aggfunc=lambda x: '👑' if 'Master' in str(x) else '🟢' # Emojis para la matriz
     ).fillna("-")
     
-    # Estilo condicional específico para la matriz
-    def color_matrix(val):
-        if 'MASTER' in str(val):
-            return 'background-color: #fee2e2; color: #b91c1c; font-weight: bold'
-        elif 'Peer' in str(val):
-            return 'color: #15803d'
-        return 'color: #e5e7eb'
-
-    st.dataframe(pivot.style.applymap(color_matrix), use_container_width=True)
+    st.dataframe(pivot, use_container_width=True)
+    st.caption("Leyenda: 👑 = Master Repeater, 🟢 = Peer Repeater, - = Sin Cobertura")
