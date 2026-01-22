@@ -848,9 +848,9 @@ with tab2:
                     """, unsafe_allow_html=True)
                     
             with c2:
-                display_df = sub_df[['Sistema_Logico', 'Alias', 'ID', 'Rol', 'RX (MHz)']]
+                display_df = sub_df[['Sistema_Logico', 'Alias', 'ID', 'RX (MHz)', 'TX (MHz)']]
                 st.dataframe(
-                    premium_style(display_df),
+                    display_df,
                     use_container_width=True,
                     hide_index=True,
                     height=min(400, len(display_df) * 50 + 50)
