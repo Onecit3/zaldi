@@ -7,7 +7,7 @@ from datetime import datetime
 
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(
-    page_title="Zaldívar Radio Monitor",
+    page_title="Zaldívar Repetidores Monitor",
     layout="wide",
     page_icon="📡",
     initial_sidebar_state="expanded"
@@ -419,12 +419,12 @@ def convert_df_to_csv(dataframe):
 def to_excel(dataframe):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        dataframe.to_excel(writer, index=False, sheet_name='Radios')
+        dataframe.to_excel(writer, index=False, sheet_name='Repetidores')
         
         # Agregar hoja de resumen
         summary_data = {
             'Métrica': [
-                'Total Radios',
+                'Total Repetidores',
                 'Total Masters',
                 'Total Peers',
                 'Sistemas Lógicos',
@@ -484,7 +484,7 @@ with st.sidebar:
     )
     
     selected_roles = st.multiselect(
-        "👑 Tipo de Radio",
+        "👑 Tipo de Repetidor",
         options=['Master', 'Peer'],
         default=['Master', 'Peer']
     )
@@ -514,7 +514,7 @@ with st.sidebar:
     st.download_button(
         label="💾 CSV",
         data=csv,
-        file_name=f'radios_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv',
+        file_name=f'repetidores_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv',
         mime='text/csv',
         use_container_width=True
     )
@@ -523,7 +523,7 @@ with st.sidebar:
     st.download_button(
         label="📊 Excel",
         data=excel_data,
-        file_name=f'reporte_radios_{datetime.now().strftime("%Y%m%d")}.xlsx',
+        file_name=f'reporte_repetidores_{datetime.now().strftime("%Y%m%d")}.xlsx',
         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         use_container_width=True
     )
@@ -588,7 +588,7 @@ with col2:
 
 with col3:
     st.metric(
-        label="📻 RADIOS",
+        label="📻 REPETIDORES",
         value=len(df_filtered),
         delta=f"{len(df)} total"
     )
@@ -625,7 +625,7 @@ with col_chart1:
         y='Total',
         color='Total',
         color_continuous_scale='Blues',
-        title="Radios por Sistema Lógico",
+        title="Repetidores por Sistema Lógico",
         labels={'Sistema_Logico': '', 'Total': 'Cantidad'}
     )
     fig_bar.update_layout(
@@ -718,7 +718,7 @@ with col_stats:
     </div>
     """, unsafe_allow_html=True)
     
-    avg_radios = len(df_filtered) / df_filtered['Cerro'].nunique() if df_filtered['Cerro'].nunique() > 0 else 0
+    avg_repetidores = len(df_filtered) / df_filtered['Cerro'].nunique() if df_filtered['Cerro'].nunique() > 0 else 0
     
     st.markdown(f"""
     <div style='background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); 
@@ -728,10 +728,10 @@ with col_stats:
             PROMEDIO
         </div>
         <div style='font-size: 2rem; font-weight: 800; color: #1e3a8a;'>
-            {avg_radios:.1f}
+            {avg_repetidores:.1f}
         </div>
         <div style='font-size: 0.85rem; color: #1e40af;'>
-            Radios por sitio
+            Repetidores por sitio
         </div>
     </div>
     """, unsafe_allow_html=True)
