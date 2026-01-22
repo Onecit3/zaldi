@@ -2,3 +2,6 @@ streamlit
 pandas
 openpyxl
 altair
+
+plotly==5.18.0
+networkx==3.2.1
